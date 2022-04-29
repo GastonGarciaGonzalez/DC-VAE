@@ -1,2 +1,2 @@
-# VAECNN
+# DC-VAE
 The following scripts are available in order to be able to reproduce the experiments carried out in...
