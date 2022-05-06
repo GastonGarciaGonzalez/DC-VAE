@@ -10,9 +10,7 @@ import pandas as pd
 import json
 from dc_vae import DCVAE
 from utils import set_index, preprocessing
-from sklearn.preprocessing import StandardScaler
-
-    
+from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
 
@@ -27,7 +25,7 @@ if __name__ == '__main__':
     # Preprocess
     df_X = set_index(data_train)
     df_X = preprocessing(df_X, settings['scale'], None, settings['model_name'],
-                         settings['wo_outliers'], settings['max_std'], 'fit')
+                         settings['wo_outliers'], settings['max_std'], 'transform')
     
     # Model initialization
     model = DCVAE(
@@ -45,4 +43,13 @@ if __name__ == '__main__':
         settings['decay_step'],
         settings['model_name'],
         summary = settings['summary']
-        )    
+        )   
+    
+    # Train
+    model.fit(df_X, settings['val_percent'], settings['seed'])
+    
+    #Plot loss curves
+    plt.plot(model.history_.history["loss"], label="Training Loss")
+    plt.plot(model.history_.history["val_loss"], label="Validation Loss")
+    plt.legend()
+    plt.savefig(settings['model_name'] + '_loss.jpg')

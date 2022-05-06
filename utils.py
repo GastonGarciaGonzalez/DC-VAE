@@ -35,12 +35,12 @@ def preprocessing(dataRaw=None, flag_scaler=True, scaler=None, scaler_name=None,
     if flag_scaler:
         if instance == 'fit':
             X = scaler.fit_transform(X)
-            pickle.dump(scaler, open(scaler_name + '.pkl','wb'))
+            pickle.dump(scaler, open(scaler_name + '_scaler.pkl','wb'))
         elif instance == 'transform':
-            scaler = pickle.load(open(scaler_name + '.pkl','rb'))
+            scaler = pickle.load(open(scaler_name + '_scaler.pkl','rb'))
             X = scaler.transform(X)
         elif instance == 'inverse':
-            scaler = pickle.load(open(scaler_name + '.pkl','rb'))
+            scaler = pickle.load(open(scaler_name + '_scaler.pkl','rb'))
             X = scaler.inverse_transform(X)
     
     X = pd.DataFrame(X, index=dataRaw.index, columns=dataRaw.columns)
