@@ -16,9 +16,9 @@ from tensorflow.keras.preprocessing import timeseries_dataset_from_array
 from tensorflow import keras
 import pandas as pd
 import numpy as np
-import tensorflow_datasets as tfds
 from sklearn.metrics import f1_score, recall_score, precision_score
 from prts import ts_precision, ts_recall
+import pickle
 
 
 
@@ -220,21 +220,25 @@ class DCVAE:
 
 
 
-    def point_operation(self, load_model=False, df_X=None, df_y=None, scaler=None, custom_metrics=False, alpha=0, 
-                        cardinality='reciprocal', bias='front'):
+    def point_of_operation(self, load_model=False, df_X=None, df_y=None,
+                           custom_metrics=False, al=0, cardinality='reciprocal',
+                           bias='front'):
         
-        # Data
-        X = df_X.values
-        y = df_y.values
-        dataset_val_th = timeseries_dataset_from_array(
-            X, None, self.T, sequence_stride=1, sampling_rate=1,
-            batch_size=self.batch_size)             
-        
+                   
         # Model
         if load_model:
             self.vae = keras.models.load_model(self.name+'_complete.h5',
                                                   custom_objects={'sampling': Sampling},
                                                   compile = False)
+        # Data
+        X = df_X.values
+        y = df_y.values
+        dataset_val_th = timeseries_dataset_from_array(
+            X, None, self.T, sequence_stride=1, sampling_rate=1,
+            batch_size=self.batch_size)
+        
+        print('LALALALALALA')
+        print(self.T)
             
         # Predict
         prediction = self.vae.predict(dataset_val_th)
@@ -268,9 +272,9 @@ class DCVAE:
                     if custom_metrics:
                         if np.allclose(np.unique(pre_predict[:,c]), np.array([0, 1])) or np.allclose(np.unique(pre_predict[:,c]), np.array([1])):
                             pre_value = ts_precision(y_evaluate[:,c], pre_predict[:,c], 
-                                          alpha, cardinality, bias)
+                                          al, cardinality, bias)
                             rec_value = ts_recall(y_evaluate[:,c], pre_predict[:,c], 
-                                          alpha, cardinality, bias)
+                                          al, cardinality, bias)
                             f1_value = 2*(pre_value*rec_value)/(pre_value+rec_value+1e-6)
                         else:
                             pre_value = 0
@@ -290,6 +294,11 @@ class DCVAE:
         self.alpha_down = best_alpha_down
         self.f1_val = best_f1
         
+        with open(self.name + '_alpha_up.pkl', 'wb') as f:
+            pickle.dump(best_alpha_up, f)
+        with open(self.name + '_alpha_down.pkl', 'wb') as f:
+            pickle.dump(best_alpha_down, f)
+        
         return self
 
 
@@ -297,22 +306,22 @@ class DCVAE:
                
     def predict(self, load_model=False,
                 df_X=None, 
-                scaler=None,
                 only_predict=True,
+                load_alpha=True,
                 alpha_set_up=[],
                 alpha_set_down=[]):
-        
-        # Data preprocess
-        X = df_X.values
-        data = timeseries_dataset_from_array(
-            X, None, self.T, sequence_stride=1, sampling_rate=1,
-            batch_size=self.batch_size, shuffle=False, seed=42, start_index=None, end_index=None)
         
         # Trained model
         if load_model:
             self.vae = keras.models.load_model(self.name+'_complete.h5',
                                                   custom_objects={'sampling': Sampling},
                                                   compile = False)
+        
+        # Data preprocess
+        X = df_X.values
+        data = timeseries_dataset_from_array(
+            X, None, self.T, sequence_stride=1, sampling_rate=1,
+            batch_size=self.batch_size, shuffle=False, seed=42, start_index=None, end_index=None)             
 
         prediction = self.vae.predict(data) 
         # The first T-1 data of each sequence are discarded
@@ -329,11 +338,17 @@ class DCVAE:
         # Thresholds
         if len(alpha_set_up) == self.M:
             alpha_up = np.array(alpha_set_up)
+        elif load_alpha:
+            with open(self.name + '_alpha_up.pkl') as f:
+                alpha_up = pickle.load(f)
         else:
             alpha_up = self.alpha_up
             
         if len(alpha_set_down) == self.M:
             alpha_down = np.array(alpha_set_down)
+        elif load_alpha:
+            with open(self.name + '_alpha_down.pkl') as f:
+                alpha_down = pickle.load(f)
         else:
             alpha_down = self.alpha_down
         thdown = reconstruct - alpha_down*sig

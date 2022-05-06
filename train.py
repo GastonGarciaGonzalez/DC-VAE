@@ -11,6 +11,7 @@ import json
 from dc_vae import DCVAE
 from utils import set_index, preprocessing
 from matplotlib import pyplot as plt
+from sklearn.preprocessing import StandardScaler
 
 if __name__ == '__main__':
 
@@ -18,14 +19,15 @@ if __name__ == '__main__':
     settings_path = sys.argv[2]
     
     # Data
-    data_train  = pd.read_csv(data_path)
+    data  = pd.read_csv(data_path)
     # Parameters
     settings = json.load(open(settings_path, 'r'))
 
     # Preprocess
-    df_X = set_index(data_train)
-    df_X = preprocessing(df_X, settings['scale'], None, settings['model_name'],
-                         settings['wo_outliers'], settings['max_std'], 'transform')
+    sc = StandardScaler()
+    df_X = set_index(data)
+    df_X = preprocessing(df_X, settings['scale'], sc, settings['model_name'],
+                         settings['wo_outliers'], settings['max_std'], 'fit')
     
     # Model initialization
     model = DCVAE(
