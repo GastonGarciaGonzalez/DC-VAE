@@ -235,10 +235,7 @@ class DCVAE:
         y = df_y.values
         dataset_val_th = timeseries_dataset_from_array(
             X, None, self.T, sequence_stride=1, sampling_rate=1,
-            batch_size=self.batch_size)
-        
-        print('LALALALALALA')
-        print(self.T)
+            batch_size=self.batch_size)  
             
         # Predict
         prediction = self.vae.predict(dataset_val_th)
@@ -250,8 +247,6 @@ class DCVAE:
         # Data evaluate (The first T-1 data are discarded)
         X_evaluate = X[self.T-1:]
         y_evaluate = y[self.T-1:]
-        
-
         
         print('Alpha selection...')
         best_f1 = np.zeros(self.M)
@@ -296,8 +291,10 @@ class DCVAE:
         
         with open(self.name + '_alpha_up.pkl', 'wb') as f:
             pickle.dump(best_alpha_up, f)
+            f.close()
         with open(self.name + '_alpha_down.pkl', 'wb') as f:
             pickle.dump(best_alpha_down, f)
+            f.close()
         
         return self
 
@@ -322,7 +319,8 @@ class DCVAE:
         data = timeseries_dataset_from_array(
             X, None, self.T, sequence_stride=1, sampling_rate=1,
             batch_size=self.batch_size, shuffle=False, seed=42, start_index=None, end_index=None)             
-
+        
+        # Predictions
         prediction = self.vae.predict(data) 
         # The first T-1 data of each sequence are discarded
         reconstruct = prediction[0][:,-1,:]
@@ -339,16 +337,18 @@ class DCVAE:
         if len(alpha_set_up) == self.M:
             alpha_up = np.array(alpha_set_up)
         elif load_alpha:
-            with open(self.name + '_alpha_up.pkl') as f:
+            with open(self.name + '_alpha_up.pkl', 'rb') as f:
                 alpha_up = pickle.load(f)
+                f.close()
         else:
             alpha_up = self.alpha_up
             
         if len(alpha_set_down) == self.M:
             alpha_down = np.array(alpha_set_down)
         elif load_alpha:
-            with open(self.name + '_alpha_down.pkl') as f:
+            with open(self.name + '_alpha_down.pkl', 'rb') as f:
                 alpha_down = pickle.load(f)
+                f.close()
         else:
             alpha_down = self.alpha_down
         thdown = reconstruct - alpha_down*sig
