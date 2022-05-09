@@ -7,25 +7,46 @@ Due to its unsupervised nature, anomaly detection plays a central role in cybers
 ## Run the code 
 ### Environment setup
 The exact specification of our environment is provided in the file environment.yml.
-
-`conda env create -f environment.yml`
+```
+conda env create -f environment.yml
+```
 
 The command above will create an environment dc-vae with all the required dependencies. 
 After you create the environment, activate it.
-
-`conda activate dc-vae`
+```
+conda activate dc-vae
+```
 
 ### Training
 To train a model you must execute the *train.py* script and indicate the data train and settings files.
 
-`python train.py data_train.csv settings\model_settings.txt`
+```
+python train.py data_train.csv settings\model_settings.txt
+```
 
 ### Alpha definition
 If the training set contains labels, the alpha values can be adjusted in order to maximize the value of F1 in detections. Execute the *alpha_definition.py* script and indicate the train data and labels files and the settings file.
 
-`python alpha_definition.py data_train.csv labels_train.csv settings\model_settings.txt`
+```
+python alpha_definition.py data_train.csv labels_train.csv settings\model_settings.txt
+```
 
 ### Testing
 To test the trained model execute the *test.py* script and indicate the test data and settings files.
 
-`python test.py data_test.csv settings\model_settings.txt`
+```
+python test.py data_test.csv settings\model_settings.txt
+```
+
+
+## Cite
+```
+@inproceedings{garcia2022dc,
+  title={DC-VAE, Fine-grained anomaly detection in multivariate time-series with dilated convolutions and variational auto encoders},
+  author={Garc{\'\i}a Gonz{\'a}lez, Gast{\'o}n and Mart{\'\i}nez Tagliafico, Sergio and Fern{\'a}ndez, Alicia and G{\'o}mez, Gabriel and Acu{\~n}a, Jos{\'e} and Casas, Pedro},
+  booktitle={7th International Workshop on Traffic Measurements for Cybersecurity (WTMC 2022), Genoa, Italy, jun 6 2022, pp 1-7},
+  year={2022},
+  organization={IEEE}
+}
+```
+
