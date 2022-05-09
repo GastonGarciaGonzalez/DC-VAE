@@ -1,7 +1,7 @@
 {
 "dataset_name": "TELCO",
 "model_name":  "dc-vae",
-"scale": false,
+"scale": true,
 "wo_outliers": true,
 "max_std": 7,
 "T": 512,
