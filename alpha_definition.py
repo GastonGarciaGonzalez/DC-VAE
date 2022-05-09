@@ -10,7 +10,6 @@ import pandas as pd
 import json
 from dc_vae import DCVAE
 from utils import set_index, preprocessing
-from matplotlib import pyplot as plt
 import tensorflow as tf
 
 if __name__ == '__main__':
@@ -38,7 +37,7 @@ if __name__ == '__main__':
     
     # Alpha definition
     with tf.device('/cpu:0'):
-        model.point_of_operation(True, df_X, df_y)
+        model.point_of_operation(True, df_X, df_y, settings['custom_metrics'])
     
     # Results
     print('Alpha up: ', model.alpha_up)
