@@ -1,7 +1,8 @@
 # DC-VAE
-[DC-VAE, Fine-grained Anomaly Detection in Multivariate Time-Series with
+The following repository intends to make available the python codes used in [DC-VAE, Fine-grained Anomaly Detection in Multivariate Time-Series with
 Dilated Convolutions and Variational Auto Encoders
-](https://www.colibri.udelar.edu.uy/jspui/bitstream/20.500.12008/31392/1/GMFGAC22.pdf)
+](https://www.colibri.udelar.edu.uy/jspui/bitstream/20.500.12008/31392/1/GMFGAC22.pdf), so that readers can reproduce them. We welcome any comments or suggestions that help improve the repository.
+
 ## Abstract
 Due to its unsupervised nature, anomaly detection plays a central role in cybersecurity, in particular on the detection of unknown attacks. A major source of cybersecurity data comes in the form of multivariate time-series (MTS), representing the temporal evolution of multiple, usually correlated measurements. Despite the many approaches available in the literature for time-series anomaly detection, the automatic detection of abnormal events in MTS remains a complex problem. In this paper we introduce DC-VAE, a novel approach to anomaly detection in MTS, leveraging convolutional neural networks (CNNs) and variational auto encoders (VAEs). DC-VAE detects anomalies in time-series data, exploiting temporal information without sacrificing computational and memory resources. In particular, instead of using recursive neural networks, large causal filters, or many layers, DC-VAE relies on Dilated Convolutions (DC) to capture long and short term phenomena in the data, avoiding complex and less-efficient deep architectures, simplifying learning. We evaluate DC-VAE on the detection of anomalies on a large-scale, multi-dimensional network monitoring dataset collected at an operational mobile Internet Service Provider (ISP), where anomalous events were manually labeled during a time span of 7-months, at a five-minutes granularity. Results show the main properties and advantages introduced by VAEs for time-series anomaly detection, as well as the out-performance of dilated convolutions as compared to standard VAEs for time-series modeling.
 
