@@ -1,7 +1,6 @@
 # DC-VAE
-[DC-VAE, Fine-grained Anomaly Detection in Multivariate Time-Series with
-Dilated Convolutions and Variational Auto Encoders
-](https://www.colibri.udelar.edu.uy/jspui/bitstream/20.500.12008/31392/1/GMFGAC22.pdf)
+
+### _One Model to Find them All – Deep Learning for Multivariate Time-Series Anomaly Detection in Mobile Network Data_
 
 In the following repository we intend to make available the python code used in the experimental part of our work. We welcome any comments or suggestions that help improve the repository.
 
@@ -97,13 +96,7 @@ python test.py data_test.csv settings\model_settings.txt
 
 ## Cite
 ```
-@inproceedings{garcia2022dc,
-  title={DC-VAE, Fine-grained anomaly detection in multivariate time-series with dilated convolutions and variational auto encoders},
-  author={Garc{\'\i}a Gonz{\'a}lez, Gast{\'o}n and Mart{\'\i}nez Tagliafico, Sergio and Fern{\'a}ndez, Alicia and G{\'o}mez, Gabriel and Acu{\~n}a, Jos{\'e} and Casas, Pedro},
-  booktitle={7th International Workshop on Traffic Measurements for Cybersecurity (WTMC 2022), Genoa, Italy, jun 6 2022, pp 1-7},
-  year={2022},
-  organization={IEEE}
-}
+
 ```
 
 ## Acknowledgment
