@@ -6,7 +6,40 @@ Dilated Convolutions and Variational Auto Encoders
 In the following repository we intend to make available the python code used in the experimental part of our work. We welcome any comments or suggestions that help improve the repository.
 
 ## Abstract
-Due to its unsupervised nature, anomaly detection plays a central role in cybersecurity, in particular on the detection of unknown attacks. A major source of cybersecurity data comes in the form of multivariate time-series (MTS), representing the temporal evolution of multiple, usually correlated measurements. Despite the many approaches available in the literature for time-series anomaly detection, the automatic detection of abnormal events in MTS remains a complex problem. In this paper we introduce DC-VAE, a novel approach to anomaly detection in MTS, leveraging convolutional neural networks (CNNs) and variational auto encoders (VAEs). DC-VAE detects anomalies in time-series data, exploiting temporal information without sacrificing computational and memory resources. In particular, instead of using recursive neural networks, large causal filters, or many layers, DC-VAE relies on Dilated Convolutions (DC) to capture long and short term phenomena in the data, avoiding complex and less-efficient deep architectures, simplifying learning. We evaluate DC-VAE on the detection of anomalies on a large-scale, multi-dimensional network monitoring dataset collected at an operational mobile Internet Service Provider (ISP), where anomalous events were manually labeled during a time span of 7-months, at a five-minutes granularity. Results show the main properties and advantages introduced by VAEs for time-series anomaly detection, as well as the out-performance of dilated convolutions as compared to standard VAEs for time-series modeling.
+The automatic detection of anomalies in communication networks plays a central role in network management.
+Despite the many attempts and approaches for anomaly detection explored in the past, the detection of rare events in
+multidimensional network data streams still represents a complex
+to tackle problem. Network monitoring data generally consists
+of hundreds of counters periodically collected in the form of
+time-series, resulting in a complex-to-analyze multivariate timeseries (MTS) process. Traditional time-series anomaly detection
+methods target univariate time-series analysis, which makes the
+multivariate analysis cumbersome and prohibitively complex
+when dealing with MTS data. In this paper we introduce DC-VAE, a novel approach to anomaly detection in MTS data,
+leveraging convolutional neural networks (CNNs) and variational
+auto encoders (VAEs). DC-VAE detects anomalies in MTS data
+through a single model, exploiting temporal information without
+sacrificing computational and memory resources. In particular,
+instead of using recursive neural networks, large causal filters,
+or many layers, DC-VAE relies on Dilated Convolutions (DC) to
+capture long and short term phenomena in the data, avoiding
+complex and less-efficient deep architectures, thus simplifying
+learning. We evaluate DC-VAE on the detection of anomalies
+in the TELCO dataset, a large-scale, multi-dimensional network
+monitoring dataset collected at an operational mobile Internet
+Service Provider (ISP), where anomalous events were manually
+labeled by experts during a time span of seven-months, at a fiveminutes granularity. Using this dataset, we benchmark DC-VAE
+against a broad set of traditional time-series anomaly detectors
+coming from the signal processing and machine learning domains.
+We also evaluate DC-VAE in open, publicly available datasets,
+comparing its performance against other multivariate anomaly
+detectors based on deep learning generative models. Results show
+the main properties and advantages introduced by VAEs for MTS
+anomaly detection, as well as the out-performance of dilated
+convolutions as compared to standard VAEs and traditional
+univariate approaches for time-series modeling. For the sake of
+reproducibility and as an additional contribution, we make the
+TELCO dataset publicly available to the community, and openly
+release the code implementing DC-VAE.
 
 <img src="https://user-images.githubusercontent.com/68783507/168036163-c70fca64-f12e-4053-a05b-5b8fbd9c8dd6.png" alt="drawing" width="60%" height="60%"/><img src="https://user-images.githubusercontent.com/68783507/167413824-7687137a-1480-4640-8c6a-733676f2847e.gif" alt="drawing" width="40%" height="40%"/>
 
