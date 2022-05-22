@@ -19,11 +19,13 @@ if __name__ == '__main__':
     settings_path = sys.argv[2]
     
     # Data
+    print('Reading the data...')
     data  = pd.read_csv(data_path)
     # Parameters
     settings = json.load(open(settings_path, 'r'))
 
     # Preprocess
+    print('Preprocessing the data...')
     sc = StandardScaler()
     df_X = set_index(data)
     df_X = preprocessing(df_X, settings['scale'], sc, settings['model_name'],

@@ -37,7 +37,7 @@ if __name__ == '__main__':
     
     # Alpha definition
     with tf.device('/cpu:0'):
-        model.point_of_operation(True, df_X, df_y, settings['custom_metrics'])
+        model.alpha_selection(True, df_X, df_y, settings['custom_metrics'])
     
     # Results
     print('Alpha up: ', model.alpha_up)

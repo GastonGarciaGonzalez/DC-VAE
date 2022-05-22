@@ -12,7 +12,7 @@ from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import optimizers
-from tensorflow.keras.preprocessing import timeseries_dataset_from_array
+from tensorflow.keras.utils import timeseries_dataset_from_array
 from tensorflow import keras
 import pandas as pd
 import numpy as np
@@ -199,15 +199,22 @@ class DCVAE:
         val = tf.data.Dataset.zip((dataset_val, dataset_val))            
         
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(patience=10,
-                                                          verbose=1)
+        early_stopping_cb = keras.callbacks.EarlyStopping(patience=3,
+                                                          verbose=1,
+                                                          mode='min')
+        model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
+            filepath=self.name+'_best_model.h5',
+            verbose=1,
+            mode='min',
+            save_best_only=True)
+        
           
         # Model train
         self.history_ = self.vae.fit(train,
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_data = val,
-                     callbacks=[early_stopping_cb]
+                     callbacks=[early_stopping_cb, model_checkpoint_cb]
                      )  
         
         # Save models
@@ -220,7 +227,7 @@ class DCVAE:
 
 
 
-    def point_of_operation(self, load_model=False, df_X=None, df_y=None,
+    def alpha_selection(self, load_model=False, df_X=None, df_y=None,
                            custom_metrics=False, al=0, cardinality='reciprocal',
                            bias='front'):
         
