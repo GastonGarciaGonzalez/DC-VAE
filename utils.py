@@ -44,4 +44,4 @@ def preprocessing(dataRaw=None, flag_scaler=True, scaler=None, scaler_name=None,
             X = scaler.inverse_transform(X)
     
     X = pd.DataFrame(X, index=dataRaw.index, columns=dataRaw.columns)
-    return X  
+    return X      
