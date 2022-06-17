@@ -8,18 +8,18 @@ Created on Fri Apr 29 07:03:05 2022
 
 
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization
+from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization, Lambda
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import optimizers
-from tensorflow.keras.preprocessing import timeseries_dataset_from_array
+from tensorflow.keras.utils import timeseries_dataset_from_array
 from tensorflow import keras
 import pandas as pd
 import numpy as np
 from sklearn.metrics import f1_score, recall_score, precision_score
 from prts import ts_precision, ts_recall
 import pickle
-
+import gc
 
 
 @keras.utils.register_keras_serializable()
@@ -199,15 +199,24 @@ class DCVAE:
         val = tf.data.Dataset.zip((dataset_val, dataset_val))            
         
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(patience=10,
-                                                          verbose=1)
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1,
+                                                      patience=20,                                            
+                                                      verbose=1,
+                                                      mode='min')
+        model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
+            filepath=self.name+'_best_model.h5',
+            verbose=1,
+            mode='min',
+            save_best_only=True)
+        
           
         # Model train
         self.history_ = self.vae.fit(train,
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_data = val,
-                     callbacks=[early_stopping_cb]
+                     callbacks=[#early_stopping_cb,
+                                model_checkpoint_cb]
                      )  
         
         # Save models
@@ -220,14 +229,14 @@ class DCVAE:
 
 
 
-    def point_of_operation(self, load_model=False, df_X=None, df_y=None,
+    def alpha_selection(self, load_model=False, df_X=None, df_y=None,
                            custom_metrics=False, al=0, cardinality='reciprocal',
                            bias='front'):
         
                    
         # Model
         if load_model:
-            self.vae = keras.models.load_model(self.name+'_complete.h5',
+            self.vae = keras.models.load_model(self.name+'_best_model.h5',
                                                   custom_objects={'sampling': Sampling},
                                                   compile = False)
         # Data
@@ -310,9 +319,17 @@ class DCVAE:
         
         # Trained model
         if load_model:
-            self.vae = keras.models.load_model(self.name+'_complete.h5',
+            self.vae = keras.models.load_model(self.name+'_best_model.h5',
                                                   custom_objects={'sampling': Sampling},
                                                   compile = False)
+        
+        # Inference model. Auxiliary model so that in the inference 
+        # the prediction is only the last value of the sequence
+        inp = Input(shape=(self.T, self.M))
+        x = self.vae(inp) # apply trained model on the input
+        out = Lambda(lambda y: [y[0][:,-1,:], y[1][:,-1,:]])(x)
+        inference_model = Model(inp, out)
+        
         
         # Data preprocess
         X = df_X.values
@@ -321,10 +338,10 @@ class DCVAE:
             batch_size=self.batch_size, shuffle=False, seed=42, start_index=None, end_index=None)             
         
         # Predictions
-        prediction = self.vae.predict(data) 
+        prediction = inference_model.predict(data)
         # The first T-1 data of each sequence are discarded
-        reconstruct = prediction[0][:,-1,:]
-        sig = np.sqrt(np.exp(prediction[1][:,-1,:]))
+        reconstruct = prediction[0]
+        sig = np.sqrt(np.exp(prediction[1]))
         
         # Data evaluate (The first T-1 data are discarded)
         X_evaluate = X[self.T-1:]
