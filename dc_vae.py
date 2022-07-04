@@ -189,14 +189,12 @@ class DCVAE:
             X, None, self.T, sequence_stride=1, sampling_rate=1,
             batch_size=self.batch_size, shuffle=True, seed=seed, start_index=None, 
             end_index=split_index)
-        train = tf.data.Dataset.zip((dataset_train, dataset_train))
         
         # The last val_percent% of df_X
         dataset_val = timeseries_dataset_from_array(
             X, None, self.T, sequence_stride=1, sampling_rate=1,
             batch_size=self.batch_size, shuffle=True, seed=seed, start_index=split_index, 
-            end_index=None)       
-        val = tf.data.Dataset.zip((dataset_val, dataset_val))            
+            end_index=None)                 
         
         # Callbacks
         early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1,
@@ -211,10 +209,10 @@ class DCVAE:
         
           
         # Model train
-        self.history_ = self.vae.fit(train,
+        self.history_ = self.vae.fit(dataset_train,
                      batch_size=self.batch_size,
                      epochs=self.epochs,
-                     validation_data = val,
+                     validation_data = dataset_val,
                      callbacks=[#early_stopping_cb,
                                 model_checkpoint_cb]
                      )  
