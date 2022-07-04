@@ -199,16 +199,10 @@ class DCVAE:
         val = tf.data.Dataset.zip((dataset_val, dataset_val))            
         
         # Callbacks
-<<<<<<< HEAD
         early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1,
                                                       patience=20,                                            
                                                       verbose=1,
                                                       mode='min')
-=======
-        early_stopping_cb = keras.callbacks.EarlyStopping(patience=3,
-                                                          verbose=1,
-                                                          mode='min')
->>>>>>> 2c819430ba656841bf09162807c55d01e725732c
         model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
             filepath=self.name+'_best_model.h5',
             verbose=1,
@@ -221,12 +215,8 @@ class DCVAE:
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_data = val,
-<<<<<<< HEAD
                      callbacks=[#early_stopping_cb,
                                 model_checkpoint_cb]
-=======
-                     callbacks=[early_stopping_cb, model_checkpoint_cb]
->>>>>>> 2c819430ba656841bf09162807c55d01e725732c
                      )  
         
         # Save models
