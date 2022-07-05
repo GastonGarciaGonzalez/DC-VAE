@@ -318,8 +318,11 @@ class DCVAE:
         # Trained model
         if load_model:
             self.vae = keras.models.load_model(self.name+'_best_model.h5',
-                                                  custom_objects={'sampling': Sampling},
-                                                  compile = False)
+                                                    custom_objects={'sampling': Sampling},
+                                                    compile = False)
+            self.encoder = keras.models.load_model(self.name+'_encoder.h5',
+                                                    custom_objects={'sampling': Sampling},
+                                                    compile = False)
         
         # Inference model. Auxiliary model so that in the inference 
         # the prediction is only the last value of the sequence
