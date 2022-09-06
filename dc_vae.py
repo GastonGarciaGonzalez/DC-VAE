@@ -12,7 +12,8 @@ from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization, La
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import optimizers
-from tensorflow.keras.utils import timeseries_dataset_from_array
+#from tensorflow.keras.utils import timeseries_dataset_from_array
+from tensorflow.keras.preprocessing import timeseries_dataset_from_array
 from tensorflow import keras
 import pandas as pd
 import numpy as np
@@ -57,6 +58,7 @@ class DCVAE:
                  J=1,
                  epochs=100,
                  learning_rate=1e-3,
+                 lr_decay=True,
                  decay_rate=0.96,
                  decay_step=1000,
                  name = '',
@@ -78,7 +80,7 @@ class DCVAE:
         # model = encoder + decoder
         
         # Build encoder model
-        # =============================================================================
+	        # =============================================================================
         # Input
         inputs = Input(shape=input_shape, name='input')
         
@@ -97,10 +99,10 @@ class DCVAE:
             h_enc_cnn = BatchNormalization()(h_enc_cnn)
             
         # Lastest    
-        z_mean = Conv1D(cnn_units[-1], kernel, activation=None,
+        z_mean = Conv1D(J, kernel, activation=None,
                            strides=strs, padding="causal",
                            dilation_rate=dil_rate[i+1], name='z_mean')(h_enc_cnn)
-        z_log_var = Conv1D(cnn_units[-1], kernel, activation=None,
+        z_log_var = Conv1D(J, kernel, activation=None,
                            strides=strs, padding="causal",
                            dilation_rate=dil_rate[i+1], name='z_log_var')(h_enc_cnn)
             
@@ -126,7 +128,7 @@ class DCVAE:
         h_dec_cnn = BatchNormalization()(h_dec_cnn)       
         
         #Middle
-        for i in range(-2, -len(cnn_units)-1, -1):
+        for i in range(-2, -len(cnn_units), -1):
             h_dec_cnn = Conv1D(cnn_units[i], kernel, activation='elu',
                            strides=strs, padding="causal", 
                            dilation_rate=dil_rate[i], name='cnn_%d'%i)(h_dec_cnn)
@@ -135,9 +137,11 @@ class DCVAE:
         # Lastest/Output
         x__mean = Conv1D(M, kernel, activation=None, 
                                   padding="causal",
+                                  dilation_rate=dil_rate[0],
                                   name='x__mean_output')(h_dec_cnn)
         x_log_var = Conv1D(M, kernel, activation=None,
                                   padding="causal", 
+                                  dilation_rate=dil_rate[0],
                                   name='x_log_var_output')(h_dec_cnn)
 
         # Instantiate decoder model
@@ -153,14 +157,14 @@ class DCVAE:
         
         # Loss
         # Reconstruction term
-        MSE = -0.5*K.sum(K.square((inputs - x__mean)/K.exp(x_log_var)),axis=-1) #Sum in M
-        sigma_trace = -K.sum(x_log_var, axis=(-1)) #Sum in M
+        MSE = -0.5*K.mean(K.square((inputs - x__mean)/K.exp(x_log_var)),axis=-1) #Mean in M
+        sigma_trace = -K.mean(x_log_var, axis=(-1)) #Mean in M
         log_likelihood = MSE+sigma_trace
         reconstruction_loss = K.mean(-log_likelihood) #Mean in the batch and T   
        
         # Priori hypothesis term
         kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
-        kl_loss = K.sum(kl_loss, axis=-1) #Sum in J
+        kl_loss = K.mean(kl_loss, axis=-1) #Mean in J
         kl_loss *= -0.5
         kl_loss = tf.reduce_mean(kl_loss) #Mean in the batch and T
         
@@ -169,13 +173,23 @@ class DCVAE:
         self.vae.add_loss(vae_loss)
         
         # Learning rate
-        lr_schedule = optimizers.schedules.ExponentialDecay(learning_rate,
-                                                            decay_steps=decay_step,
-                                                            decay_rate=decay_rate,
-                                                            staircase=True,
-                                                            )
+        if lr_decay: 
+            lr = optimizers.schedules.ExponentialDecay(learning_rate,
+                                                    decay_steps=decay_step,
+                                                    decay_rate=decay_rate,
+                                                    staircase=True,
+                                                    )
+        else:
+            lr = learning_rate
+
         # Optimaizer
-        opt = optimizers.Adam(learning_rate=lr_schedule)
+        opt = optimizers.Adam(learning_rate=lr)
+
+        # Metrics
+        self.vae.add_metric(reconstruction_loss, name='reconst')
+        self.vae.add_metric(kl_loss, name='kl')
+
+
         self.vae.compile(optimizer=opt)
 
 
@@ -197,8 +211,8 @@ class DCVAE:
             end_index=None)                 
         
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1,
-                                                      patience=20,                                            
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
+                                                      patience=5,                                            
                                                       verbose=1,
                                                       mode='min')
         model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
@@ -213,7 +227,7 @@ class DCVAE:
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_data = dataset_val,
-                     callbacks=[#early_stopping_cb,
+                     callbacks=[early_stopping_cb,
                                 model_checkpoint_cb]
                      )  
         
@@ -384,3 +398,29 @@ class DCVAE:
             latent_space = latent_space[:,-1,:]
             df_latent_space = pd.DataFrame(latent_space, columns=np.arange(latent_space.shape[-1]), index=df_X.iloc[self.T-1:].index)
             return df_predict, df_score, df_reconstruct, df_sig, df_latent_space
+
+
+
+
+    def evaluate(self, load_model=False, df_X=None, seed=42):
+        # Data preprocess
+        X = df_X.values
+        N = df_X.shape[0]
+        
+        data = timeseries_dataset_from_array(
+            X, None, self.T, sequence_stride=1, sampling_rate=1,
+            batch_size=self.batch_size, shuffle=True, seed=seed, start_index=None, 
+            end_index=None)
+
+        # Trained model
+        if load_model:
+            self.vae = keras.models.load_model(self.name+'_complete.h5',
+                                                    custom_objects={'sampling': Sampling},
+                                                    compile = True)
+
+        # Model evaluate
+        value_elbo, reconstruction, kl = self.vae.evaluate(data,
+                     batch_size=self.batch_size,
+                     )  
+        
+        return value_elbo, reconstruction, kl
