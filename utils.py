@@ -7,7 +7,6 @@ Created on Fri Apr 29 14:34:43 2022
 
 
 import pandas as pd
-from scipy import stats
 import numpy as np
 import pickle
 
@@ -25,12 +24,13 @@ def preprocessing(dataRaw=None, flag_scaler=True, scaler=None, scaler_name=None,
     X = dataRaw.copy()
     
     if outliers:
-        z_scores = stats.zscore(X)
+        z_scores = (X-X.mean())/X.std()
         abs_z_scores = np.abs(z_scores)
         filtered_entries = (abs_z_scores > max_std)
         X = X.mask(filtered_entries)
-        X.fillna(method='ffill', inplace=True) 
-        X.fillna(method='bfill', inplace=True)
+
+    X.fillna(method='ffill', inplace=True) 
+    X.fillna(method='bfill', inplace=True)
 
     if flag_scaler:
         if instance == 'fit':
