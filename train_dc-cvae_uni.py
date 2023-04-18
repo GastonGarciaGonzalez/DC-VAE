@@ -8,7 +8,7 @@ from comet_ml import Experiment
 import sys
 import pandas as pd
 import json
-from dc_vae import DCVAE
+from dc_cvae_uni import DCVAE
 from utils import set_index, preprocessing
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import StandardScaler
@@ -24,7 +24,7 @@ experiment = Experiment(
 
 )
 
-experiment.set_name('multivariado_nocond_3')
+experiment.set_name('univariado_cond')
 
 if __name__ == '__main__':
 

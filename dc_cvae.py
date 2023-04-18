@@ -8,7 +8,7 @@ Created on Fri Apr 29 07:03:05 2022
 
 
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization, Lambda
+from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization, Lambda, Concatenate
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import optimizers
@@ -21,6 +21,7 @@ from sklearn.metrics import f1_score, recall_score, precision_score
 from prts import ts_precision, ts_recall
 import pickle
 import gc
+from utils import samples_conditions_embedd
 
 
 @keras.utils.register_keras_serializable()
@@ -82,10 +83,11 @@ class DCVAE:
         # Build encoder model
 	        # =============================================================================
         # Input
-        inputs = Input(shape=input_shape, name='input')
-        h_enc_cnn = inputs
+        in_sam = Input(shape=input_shape, name='input_samples')
+        in_time_info = Input(shape=(T, 8), name='input_time_info')
         
         # Hidden layers (1D Dilated Convolution)
+        h_enc_cnn = Concatenate(axis=-1)([in_sam, in_time_info])
         for i in range(len(cnn_units)):
             h_enc_cnn = Conv1D(cnn_units[i], kernel, activation='selu', use_bias=False,
                            strides=strs, padding="causal",
@@ -101,7 +103,7 @@ class DCVAE:
         # Output
         z = Sampling(name='z')((z_mean, z_log_var))
         # Instantiate encoder model
-        self.encoder = Model(inputs, [z_mean, z_log_var, z], name='encoder')
+        self.encoder = Model([in_sam, in_time_info], [z_mean, z_log_var, z], name='encoder')
         if summary:
             self.encoder.summary() 
         # =============================================================================
@@ -109,8 +111,8 @@ class DCVAE:
         # Build decoder model
         # =============================================================================
         # Input
-        latent_inputs = Input(shape=(T, J), name='z_sampling')
-        h_dec_cnn = latent_inputs
+        latent = Input(shape=(T, J), name='z_sampling')
+        h_dec_cnn = Concatenate(axis=-1)([latent, in_time_info])
         
         # Hidden layers (1D Dilated Convolution)
         for i in range(len(cnn_units)):
@@ -127,19 +129,20 @@ class DCVAE:
                                   name='x_log_var_output')(h_dec_cnn)
 
         # Instantiate decoder model
-        self.decoder = Model(latent_inputs, [x__mean, x_log_var], name='decoder')
+        self.decoder = Model([latent, in_time_info], [x__mean, x_log_var], name='decoder')
         if summary:
             self.decoder.summary()
         # =============================================================================
 
         # Instantiate DC-VAE model
         # =============================================================================
-        [x__mean, x_log_var] = self.decoder(self.encoder(inputs)[2])
-        self.vae = Model(inputs, [x__mean, x_log_var], name='vae')
+        [x__mean, x_log_var] = self.decoder([
+            self.encoder([in_sam, in_time_info])[2], in_time_info])
+        self.vae = Model([in_sam, in_time_info], [x__mean, x_log_var], name='vae')
         
         # Loss
         # Reconstruction term
-        MSE = -0.5*K.mean(K.square((inputs - x__mean)/K.exp(x_log_var)),axis=-1) #Mean in M
+        MSE = -0.5*K.mean(K.square((in_sam - x__mean)/K.exp(x_log_var)),axis=-1) #Mean in M
         sigma_trace = -K.mean(x_log_var, axis=(-1)) #Mean in M
         log_likelihood = MSE+sigma_trace
         reconstruction_loss = K.mean(-log_likelihood) #Mean in the batch and T   
@@ -178,11 +181,7 @@ class DCVAE:
     def fit(self, df_X=None, val_percent=0.1, seed=42):
         # Data preprocess
         X = df_X.values
-        N = X.shape[0]
-        X = np.array([X[i: i + self.T] for i in range(0, N - self.T+1)])
-        rand_idx = np.random.permutation(X.shape[0])
-        X = X[rand_idx]
-        # N = df_X.shape[0]
+        N = df_X.shape[0]
         # split_index = N - int(val_percent*N)
         
         # dataset_train = timeseries_dataset_from_array(
@@ -194,7 +193,11 @@ class DCVAE:
         # dataset_val = timeseries_dataset_from_array(
         #     X, None, self.T, sequence_stride=1, sampling_rate=1,
         #     batch_size=self.batch_size, shuffle=True, seed=seed, start_index=split_index, 
-        #     end_index=None)                 
+        #     end_index=None)        
+        X, time_info = samples_conditions_embedd(df_X, self.T)
+        ix_rand = np.random.permutation(len(X))
+        X = np.array(X)[ix_rand]
+        time_info = np.array(time_info)[ix_rand]         
         
         # Callbacks
         early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
@@ -209,7 +212,7 @@ class DCVAE:
         
           
         # Model train
-        self.history_ = self.vae.fit(X,
+        self.history_ = self.vae.fit((X, time_info),
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_split = val_percent,
