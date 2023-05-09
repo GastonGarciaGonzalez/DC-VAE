@@ -24,7 +24,7 @@ experiment = Experiment(
 
 )
 
-experiment.set_name('multivariado_nocond_3')
+experiment.set_name('multivariado_nocond_4')
 
 if __name__ == '__main__':
 
@@ -33,8 +33,8 @@ if __name__ == '__main__':
 
     # Data
     print('Reading the data...')
-    #data  = pd.read_csv(data_path)
-    path = "../../Datasets/TELCO/"
+    #path = "../../Datasets/TELCO/"
+    path = "/home/gastong/Documentos/TELCO/v0/" #Rosaluna
     filenames = ["TELCO_data_2022_01.zip", "TELCO_data_2022_02.zip", "TELCO_data_2022_03.zip"]
     data = pd.DataFrame()
     for i in range(len(filenames)):

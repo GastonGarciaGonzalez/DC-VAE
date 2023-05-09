@@ -12,7 +12,6 @@ from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization, La
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import optimizers
-#from tensorflow.keras.utils import timeseries_dataset_from_array
 from tensorflow.keras.preprocessing import timeseries_dataset_from_array
 from tensorflow import keras
 import pandas as pd
@@ -62,7 +61,6 @@ class DCVAE:
                  decay_rate=0.96,
                  decay_step=1000,
                  name = '',
-                 epsilon = 1e-12,  
                  summary=False,
                  ):
         
@@ -75,12 +73,12 @@ class DCVAE:
         self.batch_size = batch_size
         self.epochs = epochs  
         self.name = name
-
         
+
         # model = encoder + decoder
         
         # Build encoder model
-	        # =============================================================================
+	    # =============================================================================
         # Input
         inputs = Input(shape=input_shape, name='input')
         h_enc_cnn = inputs
@@ -176,25 +174,16 @@ class DCVAE:
 
 
     def fit(self, df_X=None, val_percent=0.1, seed=42):
-        # Data preprocess
+        # Data
         X = df_X.values
         N = X.shape[0]
+
+        # Samples: [N-T+1, T, M]
         X = np.array([X[i: i + self.T] for i in range(0, N - self.T+1)])
+
+        # Random disorden of the samples
         rand_idx = np.random.permutation(X.shape[0])
-        X = X[rand_idx]
-        # N = df_X.shape[0]
-        # split_index = N - int(val_percent*N)
-        
-        # dataset_train = timeseries_dataset_from_array(
-        #     X, None, self.T, sequence_stride=1, sampling_rate=1,
-        #     batch_size=self.batch_size, shuffle=True, seed=seed, start_index=None, 
-        #     end_index=split_index)
-        
-        # # The last val_percent% of df_X
-        # dataset_val = timeseries_dataset_from_array(
-        #     X, None, self.T, sequence_stride=1, sampling_rate=1,
-        #     batch_size=self.batch_size, shuffle=True, seed=seed, start_index=split_index, 
-        #     end_index=None)                 
+        X = X[rand_idx]               
         
         # Callbacks
         early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
@@ -224,93 +213,11 @@ class DCVAE:
 
         return self
 
-
-
-
-    def alpha_selection(self, load_model=False, df_X=None, df_y=None,
-                           custom_metrics=False, al=0, cardinality='reciprocal',
-                           bias='front'):
-        
-                   
-        # Model
-        if load_model:
-            self.vae = keras.models.load_model(self.name+'_best_model.h5',
-                                                  custom_objects={'sampling': Sampling},
-                                                  compile = False)
-        # Data
-        X = df_X.values
-        y = df_y.values
-        dataset_val_th = timeseries_dataset_from_array(
-            X, None, self.T, sequence_stride=1, sampling_rate=1,
-            batch_size=self.batch_size)  
-            
-        # Predict
-        prediction = self.vae.predict(dataset_val_th)
-        # The first T-1 data of each sequence are discarded
-        reconstruct = prediction[0][:,-1,:]
-        log_var = prediction[1][:,-1,:]
-        sig = np.sqrt(np.exp(log_var))
-        
-        # Data evaluate (The first T-1 data are discarded)
-        X_evaluate = X[self.T-1:]
-        y_evaluate = y[self.T-1:]
-        
-        print('Alpha selection...')
-        best_f1 = np.zeros(self.M)
-        max_alpha = 7
-        best_alpha_up = max_alpha*np.ones(self.M)
-        best_alpha_down = max_alpha*np.ones(self.M)
-        for alpha_up in np.arange(max_alpha, 1, -1):
-            for alpha_down in np.arange(max_alpha, 1, -1):
-                
-                thdown = reconstruct - alpha_down*sig
-                
-                thup = reconstruct + alpha_up*sig
-                
-                pre_predict = (X_evaluate < thdown) | (X_evaluate > thup)
-                pre_predict = pre_predict.astype(int)
-                
-                for c in range(self.M):
-                    if custom_metrics:
-                        if np.allclose(np.unique(pre_predict[:,c]), np.array([0, 1])) or np.allclose(np.unique(pre_predict[:,c]), np.array([1])):
-                            pre_value = ts_precision(y_evaluate[:,c], pre_predict[:,c], 
-                                          al, cardinality, bias)
-                            rec_value = ts_recall(y_evaluate[:,c], pre_predict[:,c], 
-                                          al, cardinality, bias)
-                            f1_value = 2*(pre_value*rec_value)/(pre_value+rec_value+1e-6)
-                        else:
-                            pre_value = 0
-                            rec_value = 0
-                            f1_value = 0
-                    else:
-                        f1_value = f1_score(y_evaluate[:,c], pre_predict[:,c], pos_label=1)
-                        pre_value = precision_score(y_evaluate[:,c], pre_predict[:,c], pos_label=1)
-                        rec_value = recall_score(y_evaluate[:,c], pre_predict[:,c], pos_label=1)
-                    
-                    if f1_value >= best_f1[c]:
-                        best_f1[c] = f1_value
-                        best_alpha_up[c] = alpha_up
-                        best_alpha_down[c] = alpha_down
-
-        self.alpha_up = best_alpha_up
-        self.alpha_down = best_alpha_down
-        self.f1_val = best_f1
-        
-        with open(self.name + '_alpha_up.pkl', 'wb') as f:
-            pickle.dump(best_alpha_up, f)
-            f.close()
-        with open(self.name + '_alpha_down.pkl', 'wb') as f:
-            pickle.dump(best_alpha_down, f)
-            f.close()
-        
-        return self
-
-
-
-               
-    def predict(self, load_model=False,
+         
+    def predict(self,
                 df_X=None, 
-                only_predict=True,
+                load_model=False,
+                large_result=True,
                 load_alpha=True,
                 alpha_set_up=[],
                 alpha_set_down=[]):
@@ -334,23 +241,22 @@ class DCVAE:
         
         # Data preprocess
         X = df_X.values
-        data = timeseries_dataset_from_array(
-            X, None, self.T, sequence_stride=1, sampling_rate=1,
-            batch_size=self.batch_size, shuffle=False, seed=42, start_index=None, end_index=None)             
+        N = df_X.shape[0]
         
+        # Samples: [N-T+1, T, M]
+        X = np.array([X[i: i + self.T] for i in range(0, N - self.T+1)])
+
         # Predictions
-        prediction = inference_model.predict(data)
-        # The first T-1 data of each sequence are discarded
-        reconstruct = prediction[0]
-        sig = np.sqrt(np.exp(prediction[1]))
+        prediction = inference_model.predict(X)
+        mean_predict = prediction[0]
+        sig_predict = np.sqrt(np.exp(prediction[1]))
         
         # Data evaluate (The first T-1 data are discarded)
-        X_evaluate = X[self.T-1:]
+        df_X_eval = df_X[self.T-1:]
 
-        df_sig = pd.DataFrame(sig, columns=df_X.columns, index=df_X.iloc[self.T-1:].index)
-        error = abs(X_evaluate-reconstruct)
-        df_score = pd.DataFrame(error, columns=df_X.columns, index=df_X.iloc[self.T-1:].index)
-        
+        df_mean = pd.DataFrame(mean_predict, columns=df_X.columns, index=df_X.iloc[self.T-1:].index)
+        df_sig = pd.DataFrame(sig_predict, columns=df_X.columns, index=df_X.iloc[self.T-1:].index)
+
         # Thresholds
         if len(alpha_set_up) == self.M:
             alpha_up = np.array(alpha_set_up)
@@ -369,34 +275,31 @@ class DCVAE:
                 f.close()
         else:
             alpha_down = self.alpha_down
-        thdown = reconstruct - alpha_down*sig
-        thup = reconstruct + alpha_up*sig
+
+        thdown = df_mean - alpha_down*df_sig
+        thup = df_mean + alpha_up*df_sig
         
         # Evaluation
-        pred = (X_evaluate < thdown) | (X_evaluate > thup)
-        df_predict = pd.DataFrame(pred, columns=df_X.columns, index=df_X.iloc[self.T-1:].index)
+        df_anom_result = (df_X_eval < thdown) | (df_X_eval > thup)
         
-        if only_predict:
-            return df_predict
-        else:
-            df_reconstruct = pd.DataFrame(reconstruct, columns=df_X.columns, index=df_X.iloc[self.T-1:].index)
-            latent_space = self.encoder.predict(data)[2]
+        if large_result:
+            df_score = -0.5*((df_X_eval - df_mean)**2)/(df_sig**2) - np.log(df_sig**2)
+            latent_space = self.encoder.predict(X)[2]
             latent_space = latent_space[:,-1,:]
             df_latent_space = pd.DataFrame(latent_space, columns=np.arange(latent_space.shape[-1]), index=df_X.iloc[self.T-1:].index)
-            return df_predict, df_score, df_reconstruct, df_sig, df_latent_space
-
+            return df_anom_result, df_score, df_mean, df_sig, df_latent_space
+        else: 
+            return df_anom_result
 
 
 
     def evaluate(self, load_model=False, df_X=None, seed=42):
-        # Data preprocess
+        # Data
         X = df_X.values
         N = df_X.shape[0]
         
-        data = timeseries_dataset_from_array(
-            X, None, self.T, sequence_stride=1, sampling_rate=1,
-            batch_size=self.batch_size, shuffle=True, seed=seed, start_index=None, 
-            end_index=None)
+        # Samples: [N-T+1, T, M]
+        X = np.array([X[i: i + self.T] for i in range(0, N - self.T+1)])
 
         # Trained model
         if load_model:
@@ -405,7 +308,7 @@ class DCVAE:
                                                     compile = True)
 
         # Model evaluate
-        value_elbo, reconstruction, kl = self.vae.evaluate(data,
+        value_elbo, reconstruction, kl = self.vae.evaluate(X,
                      batch_size=self.batch_size,
                      )  
         
