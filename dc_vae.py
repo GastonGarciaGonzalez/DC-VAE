@@ -186,8 +186,8 @@ class DCVAE:
         X = X[rand_idx]               
         
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
-                                                      patience=5,                                            
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-3,
+                                                      patience=10,                                            
                                                       verbose=1,
                                                       mode='min')
         model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
@@ -250,6 +250,7 @@ class DCVAE:
         prediction = inference_model.predict(X)
         mean_predict = prediction[0]
         sig_predict = np.sqrt(np.exp(prediction[1]))
+        sig_predict = np.exp(0.5*prediction[1])
         
         # Data evaluate (The first T-1 data are discarded)
         df_X_eval = df_X[self.T-1:]

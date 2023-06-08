@@ -194,7 +194,7 @@ class DCVAE:
         
         # Callbacks
         early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
-                                                      patience=5,                                            
+                                                      patience=10,                                            
                                                       verbose=1,
                                                       mode='min')
         model_checkpoint_cb= keras.callbacks.ModelCheckpoint(

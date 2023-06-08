@@ -24,31 +24,26 @@ experiment = Experiment(
 
 )
 
-experiment.set_name('multivariado_cond_3')
+experiment.set_name('multivariado_cond_quan98')
 
 if __name__ == '__main__':
 
-    #data_path = sys.argv[1]
+    # Parameters
     settings_path = sys.argv[1]
+    settings = json.load(open(settings_path, 'r'))
 
     # Data
     print('Reading the data...')
-    #data  = pd.read_csv(data_path)
-    path = "../../Datasets/TELCO/"
+    #path = "../../Datasets/TELCO/"
+    path = "/home/gastong/Documentos/TELCO/v0/" #Rosaluna
     filenames = ["TELCO_data_2022_01.zip", "TELCO_data_2022_02.zip", "TELCO_data_2022_03.zip"]
-    data = pd.DataFrame()
-    for i in range(len(filenames)):
-        data = pd.concat([data, pd.read_csv(path+filenames[i])])
-    # Parameters
-    settings = json.load(open(settings_path, 'r'))
+    files = [path+ i for i in filenames]
+    data = pd.concat(map(pd.read_csv, files))
+    data = set_index(data)
+    data = preprocessing(data, flag_scaler=False, outliers=True)
 
-    # Preprocess
-    print('Preprocessing the data...')
-    sc = StandardScaler()
-    df_X = set_index(data)
-    df_X = preprocessing(df_X, settings['scale'], sc, settings['model_name'],
-                            settings['wo_outliers'], settings['max_std'], 'fit')
 
+    data = data/data.quantile(0.98)
     # Model initialization
     model = DCVAE(
         settings['T'],
@@ -70,7 +65,7 @@ if __name__ == '__main__':
 
     # Train
     with experiment.train():
-        model.fit(df_X, settings['val_percent'], settings['seed'])
+        model.fit(data, settings['val_percent'], settings['seed'])
 
     #Plot loss curves
     plt.plot(model.history_.history["loss"], label="Training Loss")
@@ -86,4 +81,4 @@ if __name__ == '__main__':
     # Report multiple hyperparameters using a dictionary:
     hyper_params = settings
     experiment.log_parameters(hyper_params)
-    experiment.log_dataset_hash(df_X) #creates and logs a hash of your data
+    experiment.log_dataset_hash(data) #creates and logs a hash of your data

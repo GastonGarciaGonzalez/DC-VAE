@@ -110,7 +110,7 @@ def samples_conditions_embedd(ds=None, T=32):
     samples = [values[i: i + T] for i in range(0, N - T+1)]  
     samples_time_embedd = [time_cond[i: i + T] for i in range(0, N - T+1)]
     
-    return samples, samples_time_embedd
+    return np.array(samples), np.array(samples_time_embedd)
 
 def MTS2UTS_cond(ds=None, T=32, seed=42):
     N, C = ds.shape
@@ -133,3 +133,6 @@ def MTS2UTS_cond(ds=None, T=32, seed=42):
     samples_values = np.array(samples_values)
     samples_info = np.concatenate([np.array(samples_time_cond), np.array(samples_class)], axis=-1) 
     return samples_values, samples_info
+
+def likelihood(x, mu, sigma):
+    np.exp(-0.5*((x-mu)/sigma)**2)/(np.sqrt(2*np.pi)*sigma)

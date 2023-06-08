@@ -191,8 +191,8 @@ class DCVAE:
         time_info = np.array(time_info)[ix_rand]         
         
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
-                                                      patience=5,                                            
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-3,
+                                                      patience=10,                                            
                                                       verbose=1,
                                                       mode='min')
         model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
