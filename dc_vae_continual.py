@@ -56,12 +56,13 @@ class DCVAE:
                  strs=1,
                  batch_size=32,
                  J=1,
-                 time_embedding = False,
-                 summary=False,
                  learning_rate=1e-3,
                  lr_decay=True,
                  decay_rate=0.96,
                  decay_step=1000,
+                 time_embedding = False,
+                 summary=False,
+
                  ):
         
         
@@ -210,6 +211,7 @@ class DCVAE:
             X, time_info = samples_conditions_embedd(df_X, self.__T)  
         else:
             X = df_X.values
+            X = np.array([X[i: i + self.T] for i in range(0, N - self.__T+1)])
 
         if not(df_gen.empty):
             if not(self.__time_embedding):
@@ -239,9 +241,14 @@ class DCVAE:
         
           
         # Model train
-        self.history_ = self.vae.fit((X, time_info),
+        if self.__time_embedding:
+            input_model = (X, time_info)
+        else: 
+            input_model = X
+
+        self.history_ = self.vae.fit(input_model,
                      batch_size=self.__batch_size,
-                     epochs=self.__epochs,
+                     epochs=epochs,
                      validation_split = val_percent,
                      callbacks=cb
                      )  
@@ -277,9 +284,13 @@ class DCVAE:
         # the prediction is only the last value of the sequence
         in_sam = Input(shape=(self.__T, self.__M))
         in_time_info = Input(shape=(self.__T, 8))
-        x = self.vae((in_sam, in_time_info)) # apply trained model on the input
+        if self.__time_embedding:
+            input_model = (in_sam, in_time_info)
+        else: 
+            input_model = in_sam
+        x = self.vae(input_model) # apply trained model on the input
         out = Lambda(lambda y: [y[0][:,-1,:], y[1][:,-1,:]])(x)
-        inference_model = Model((in_sam, in_time_info), out)
+        inference_model = Model(input_model, out)
         
         
         # Data preprocess
