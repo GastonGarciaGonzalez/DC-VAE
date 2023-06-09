@@ -75,7 +75,9 @@ if __name__ == '__main__':
         model.fit(data,
                 settings['val_percent'],
                 settings['epochs'],
-                settings['model_name'],)
+                settings['model_name'],
+                settings['save_best_model'],
+                settings['save_complete_model'])
         #experiment.log_metrics({'learning_rate': model.__lr})
 
     #Plot loss curves

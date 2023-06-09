@@ -211,7 +211,8 @@ class DCVAE:
             X, time_info = samples_conditions_embedd(df_X, self.__T)  
         else:
             X = df_X.values
-            X = np.array([X[i: i + self.T] for i in range(0, N - self.__T+1)])
+            N = df_X.shape[0]
+            X = np.array([X[i: i + self.__T] for i in range(0, N - self.__T+1)])
 
         if not(df_gen.empty):
             if not(self.__time_embedding):
@@ -295,10 +296,18 @@ class DCVAE:
         
         # Data preprocess
         # Samples: [N-T+1, T, M] 
-        X, time_info = samples_conditions_embedd(df_X, self.__T)
+        if self.__time_embedding:
+            X, time_info = samples_conditions_embedd(df_X, self.__T)  
+            input_samples = (X, time_info)
+        else:
+            X = df_X.values
+            N = df_X.shape[0]
+            X = np.array([X[i: i + self.__T] for i in range(0, N - self.__T+1)])
+            input_samples = X
+
         
         # Predictions
-        prediction = inference_model.predict((X, time_info))
+        prediction = inference_model.predict(input_samples)
 
         mean_predict = prediction[0]
         sig_predict = np.sqrt(np.exp(prediction[1]))
@@ -333,7 +342,7 @@ class DCVAE:
         
         if large_result:
             df_score = -0.5*((df_X_eval - df_mean)**2)/(df_sig**2) - np.log(df_sig**2)
-            latent_space = self.encoder.predict((X, time_info))[2]
+            latent_space = self.encoder.predict(input_samples)[2]
             latent_space = latent_space[:,-1,:]
             df_latent_space = pd.DataFrame(latent_space, columns=np.arange(latent_space.shape[-1]), index=df_X.iloc[self.__T-1:].index)
             return df_anom_result, df_score, df_mean, df_sig, df_latent_space
@@ -345,7 +354,14 @@ class DCVAE:
     def evaluate(self, load_model=False, df_X=None, name=''):
         # Data
         # Samples: [N-T+1, T, M] 
-        X, time_info = samples_conditions_embedd(df_X, self.__T)
+        if self.__time_embedding:
+            X, time_info = samples_conditions_embedd(df_X, self.__T)  
+            input_samples = (X, time_info)
+        else:
+            X = df_X.values
+            N = df_X.shape[0]
+            X = np.array([X[i: i + self.__T] for i in range(0, N - self.__T+1)])
+            input_samples = X
 
         # Trained model
         if load_model:
@@ -354,7 +370,7 @@ class DCVAE:
                                                     compile = True)
 
         # Model evaluate
-        value_elbo, reconstruction, kl = self.vae.evaluate((X, time_info),
+        value_elbo, reconstruction, kl = self.vae.evaluate(input_samples,
                      batch_size=self.__batch_size,
                      )  
         
