@@ -203,7 +203,7 @@ class DCVAE:
             name = '',
             save_best_model=True,
             save_complete_model=True,
-            df_gen=pd.DataFrame()):
+            X_gen=np.array([])):
         
         # Data
         # Samples: [N-T+1, T, M] 
@@ -214,11 +214,11 @@ class DCVAE:
             N = df_X.shape[0]
             X = np.array([X[i: i + self.__T] for i in range(0, N - self.__T+1)])
 
-        if not(df_gen.empty):
+        if not(X_gen.size == 0):
             if not(self.__time_embedding):
-                X = np.concatenate((X, df_gen.values))
+                X = np.concatenate((X, X_gen))
             else:
-                print('ERROR: time_embedding and df_gen incompatible')
+                print('ERROR: time_embedding and X_gen incompatible')
 
         # Random disorden of the samples
         ix_rand = np.random.permutation(len(X))
@@ -258,7 +258,7 @@ class DCVAE:
         if save_complete_model:
             self.encoder.save(name + '_encoder.h5')
             self.decoder.save(name + '_decoder.h5')
-            self.vae.save(name + '_complete.h5')
+            self.vae.save(name + '_complete.h5',  save_format="tf")
 
         return self
 
