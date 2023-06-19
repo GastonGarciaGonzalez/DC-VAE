@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 """
 Created on Fri Apr 29 12:08:16 2022
 
@@ -39,9 +39,10 @@ if __name__ == '__main__':
     #path = "../../Datasets/TELCO/"
     path = "/home/gastong/Documentos/TELCO/v1/" #Rosaluna
     filenames = ["TELCO_data_2021_01.zip", "TELCO_data_2021_02.zip", "TELCO_data_2021_03.zip",
-                 "TELCO_data_2021_04.zip", "TELCO_data_2021_05.zip", "TELCO_data_2021_06.zip",
-                 "TELCO_data_2021_07.zip", "TELCO_data_2021_08.zip", "TELCO_data_2021_09.zip",
-                 "TELCO_data_2021_10.zip", "TELCO_data_2021_11.zip", "TELCO_data_2021_12.zip"]
+                 #"TELCO_data_2021_04.zip", "TELCO_data_2021_05.zip", "TELCO_data_2021_06.zip",
+                 #"TELCO_data_2021_07.zip", "TELCO_data_2021_08.zip", "TELCO_data_2021_09.zip",
+                 #"TELCO_data_2021_10.zip", "TELCO_data_2021_11.zip", "TELCO_data_2021_12.zip"
+                 ]
     files = [path+ i for i in filenames]
     data = pd.concat(map(pd.read_csv, files))
     data = set_index(data)
