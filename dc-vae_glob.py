@@ -85,8 +85,7 @@ class DCVAE:
         # Build encoder model
         # =============================================================================
         # Input
-        in_sam = Input(shape=input_shape, name='input_samples')
-        in_time_class_info = Input(shape=(T, 9), name='input_time_class_info')
+        input = Input(shape=input_shape, name='input_samples')
 
         # Hidden layers (1D Dilated Convolution)
         h_enc_cnn = Concatenate(axis=-1)([in_sam, in_time_class_info])
