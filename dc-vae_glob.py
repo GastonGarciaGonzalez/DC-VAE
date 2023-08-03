@@ -18,7 +18,7 @@ import numpy as np
 from sklearn.metrics import f1_score, recall_score, precision_score
 from prts import ts_precision, ts_recall
 import pickle
-from utils import set_index, preprocessing, MTS2UTS_cond, UTS2MTS
+from utils import MTS2UTS, UTS2MTS
 
 @keras.utils.register_keras_serializable()
 class Sampling(Layer):
@@ -46,7 +46,6 @@ class DCVAE:
     
     def __init__(self,
                  T=32,
-                 M=12,
                  cnn_units = [16,16,16,16,16],
                  dil_rate = [1, 2, 4, 8,16],
                  kernel=2,
@@ -68,7 +67,6 @@ class DCVAE:
         input_shape = (T, 1)
         self.cnn_units = cnn_units
         self.dil_rate = dil_rate
-        self.M = M
         self.T = T
         self.J = J
         self.batch_size = batch_size
@@ -88,7 +86,7 @@ class DCVAE:
         input = Input(shape=input_shape, name='input_samples')
 
         # Hidden layers (1D Dilated Convolution)
-        h_enc_cnn = Concatenate(axis=-1)([in_sam, in_time_class_info])
+        h_enc_cnn = input
         for i in range(len(cnn_units)):
             h_enc_cnn = Conv1D(cnn_units[i], kernel, activation='selu', use_bias=False,
                            strides=strs, padding="causal",
@@ -107,7 +105,7 @@ class DCVAE:
         # Output
         z = Sampling(name='z')((z_mean, z_log_var))
         # Instantiate encoder model
-        self.encoder = Model([in_sam, in_time_class_info], [z_mean, z_log_var, z], name='encoder')
+        self.encoder = Model(input, [z_mean, z_log_var, z], name='encoder')
 
         if summary:
             self.encoder.summary() 
@@ -121,7 +119,7 @@ class DCVAE:
         # Hidden layers (1D Dilated Convolution)
         latent_reshape = Reshape((J, ), input_shape=(1, J))(latent)
         repeat_z = RepeatVector(T)(latent_reshape)
-        h_dec_cnn = Concatenate(axis=-1)([repeat_z, in_time_class_info])
+        h_dec_cnn = repeat_z
 
         for i in range(len(cnn_units)):
             h_dec_cnn = Conv1D(cnn_units[i], kernel, activation='selu', use_bias=False,
@@ -135,7 +133,7 @@ class DCVAE:
                                   name='x_log_var_output', use_bias=False)(h_dec_cnn)
 
         # Instantiate decoder model
-        self.decoder = Model([latent, in_time_class_info], [x__mean, x_log_var], name='decoder')
+        self.decoder = Model(latent, [x__mean, x_log_var], name='decoder')
         if summary:
             self.decoder.summary()
         # =============================================================================
@@ -143,12 +141,12 @@ class DCVAE:
         # Instantiate DC-VAE model
         # =============================================================================
         [x__mean, x_log_var] = self.decoder([
-            self.encoder([in_sam, in_time_class_info])[2], in_time_class_info])
-        self.vae = Model([in_sam, in_time_class_info], [x__mean, x_log_var], name='vae')
+            self.encoder(input)[2], in_time_class_info])
+        self.vae = Model(latent, [x__mean, x_log_var], name='vae')
         
         # Loss
         # Reconstruction term
-        MSE = -0.5*K.mean(K.square((in_sam - x__mean)/K.exp(x_log_var)),axis=-1) #Mean in M
+        MSE = -0.5*K.mean(K.square((input - x__mean)/K.exp(x_log_var)),axis=-1) #Mean in M
         sigma_trace = -K.mean(x_log_var, axis=(-1)) #Mean in M
         log_likelihood = MSE+sigma_trace
         reconstruction_loss = K.mean(-log_likelihood) #Mean in the batch and T  
@@ -186,16 +184,16 @@ class DCVAE:
     def fit(self, df_X=None, val_percent=0.1, seed=42):
     
         # Data preprocess
-        X, cond_info = MTS2UTS_cond(df_X, T=self.T)
+        X, _, _ = MTS2UTS(df_X, T=self.T)
         ix_rand = np.random.permutation(X.shape[0])
         X = np.array(X)[ix_rand]
-        cond_info = np.array(cond_info)[ix_rand]  
 
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
-                                                      patience=5,                                            
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-3,
+                                                      patience=10,                                            
                                                       verbose=1,
                                                       mode='min')
+        
         model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
             filepath=self.name+'_best_model.h5',
             verbose=1,
@@ -204,7 +202,7 @@ class DCVAE:
         
           
         # Model train
-        self.history_ = self.vae.fit((X, cond_info),
+        self.history_ = self.vae.fit(X,
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_split = val_percent,
@@ -217,95 +215,6 @@ class DCVAE:
         self.decoder.save(self.name+'_decoder.h5')
         self.vae.save(self.name+'_complete.h5')
 
-        return self
-
-
-
-
-    def alpha_selection(self, load_model=False, df_X=None, df_y=None,
-                           custom_metrics=False, al=0, cardinality='reciprocal',
-                           bias='front'):
-        
-                   
-        # Model
-        if load_model:
-            self.vae = keras.models.load_model(self.name+'_complete.h5',
-                                                  custom_objects={'sampling': Sampling},
-                                                  compile = False)
-
-        # Inference model. Auxiliary model so that in the inference 
-        # the prediction is only the last value of the sequence
-        inp = Input(shape=(self.T, self.M))
-        x = self.vae(inp) # apply trained model on the input
-        out = Lambda(lambda y: [y[0][:,-1,:], y[1][:,-1,:]])(x)
-        inference_model = Model(inp, out)
-
-        # Data
-        X = df_X.values
-        y = df_y.values
-        dataset_val_th = timeseries_dataset_from_array(
-            X, None, self.T, sequence_stride=1, sampling_rate=1,
-            batch_size=self.batch_size)  
-            
-        # Predict
-        prediction = inference_model.predict(dataset_val_th)
-        # The first T-1 data of each sequence are discarded
-        reconstruct = prediction[0]
-        log_var = prediction[1]
-        sig = np.sqrt(np.exp(log_var))
-        
-        # Data evaluate (The first T-1 data are discarded)
-        X_evaluate = X[self.T-1:]
-        y_evaluate = y[self.T-1:]
-        
-        print('Alpha selection...')
-        best_f1 = np.zeros(self.M)
-        max_alpha = 7
-        best_alpha_up = max_alpha*np.ones(self.M)
-        best_alpha_down = max_alpha*np.ones(self.M)
-        for alpha_up in np.arange(max_alpha, 1, -1):
-            for alpha_down in np.arange(max_alpha, 1, -1):
-                
-                thdown = reconstruct - alpha_down*sig
-                
-                thup = reconstruct + alpha_up*sig
-                
-                pre_predict = (X_evaluate < thdown) | (X_evaluate > thup)
-                pre_predict = pre_predict.astype(int)
-                
-                for c in range(self.M):
-                    if custom_metrics:
-                        if np.allclose(np.unique(pre_predict[:,c]), np.array([0, 1])) or np.allclose(np.unique(pre_predict[:,c]), np.array([1])):
-                            pre_value = ts_precision(y_evaluate[:,c], pre_predict[:,c], 
-                                          al, cardinality, bias)
-                            rec_value = ts_recall(y_evaluate[:,c], pre_predict[:,c], 
-                                          al, cardinality, bias)
-                            f1_value = 2*(pre_value*rec_value)/(pre_value+rec_value+1e-6)
-                        else:
-                            pre_value = 0
-                            rec_value = 0
-                            f1_value = 0
-                    else:
-                        f1_value = f1_score(y_evaluate[:,c], pre_predict[:,c], pos_label=1)
-                        pre_value = precision_score(y_evaluate[:,c], pre_predict[:,c], pos_label=1)
-                        rec_value = recall_score(y_evaluate[:,c], pre_predict[:,c], pos_label=1)
-                    
-                    if f1_value >= best_f1[c]:
-                        best_f1[c] = f1_value
-                        best_alpha_up[c] = alpha_up
-                        best_alpha_down[c] = alpha_down
-
-        self.alpha_up = best_alpha_up
-        self.alpha_down = best_alpha_down
-        self.f1_val = best_f1
-        
-        with open(self.name + '_alpha_up.pkl', 'wb') as f:
-            pickle.dump(best_alpha_up, f)
-            f.close()
-        with open(self.name + '_alpha_down.pkl', 'wb') as f:
-            pickle.dump(best_alpha_down, f)
-            f.close()
-        
         return self
 
          
@@ -328,13 +237,13 @@ class DCVAE:
 
         # Inference model. Auxiliary model so that in the inference 
         # the prediction is only the last value of the sequence
-        inp = Input(shape=(self.T, self.M))
+        inp = Input(shape=(self.T, 1))
         x = self.vae(inp) # apply trained model on the input
         out = Lambda(lambda y: [y[0][:,-1,:], y[1][:,-1,:]])(x)
         inference_model = Model(inp, out)
         
         # Data preprocess
-        sam_val, sam_ix, sam_class = MTS2UTS_cond(df_X, T=self.T)
+        sam_val, sam_ix, sam_class = MTS2UTS(df_X, T=self.T)
         
         # Predictions
         prediction = self.vae.predict(np.stack(sam_val))
@@ -373,7 +282,7 @@ class DCVAE:
 
     def evaluate(self, df_X=None, load_model=False, model='best_model'):
         # Data preprocess
-        sam_val, sam_ix, sam_class = MTS2UTS(df_X, T=self.T)
+        sam_val, _, _ = MTS2UTS(df_X, T=self.T)
 
         # Trained model
         if load_model:
