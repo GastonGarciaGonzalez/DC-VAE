@@ -140,9 +140,9 @@ class DCVAE:
 
         # Instantiate DC-VAE model
         # =============================================================================
-        [x__mean, x_log_var] = self.decoder([
-            self.encoder(input)[2], in_time_class_info])
-        self.vae = Model(latent, [x__mean, x_log_var], name='vae')
+        [x__mean, x_log_var] = self.decoder(self.encoder(input)[2])
+        
+        self.vae = Model(input, [x__mean, x_log_var], name='vae')
         
         # Loss
         # Reconstruction term
