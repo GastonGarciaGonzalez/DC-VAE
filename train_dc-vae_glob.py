@@ -33,26 +33,21 @@ if __name__ == '__main__':
 
     # Data
     print('Reading the data...')
-    #data  = pd.read_csv(data_path)
-    path = "../../Datasets/TELCO/"
+    path = "/home/gastong/Documentos/TELCO/v0/" #Rosaluna
     filenames = ["TELCO_data_2022_01.zip", "TELCO_data_2022_02.zip", "TELCO_data_2022_03.zip"]
-    data = pd.DataFrame()
-    for i in range(len(filenames)):
-        data = pd.concat([data, pd.read_csv(path+filenames[i])])
+    files = [path+ i for i in filenames]
+    data = pd.concat(map(pd.read_csv, files))
+    data = set_index(data)
+    data = preprocessing(data, flag_scaler=False, outliers=True)
+
+    data = data/data.quantile(0.98)
+
     # Parameters
     settings = json.load(open(settings_path, 'r'))
-
-    # Preprocess
-    print('Preprocessing the data...')
-    sc = StandardScaler()
-    df_X = set_index(data)
-    df_X = preprocessing(df_X, settings['scale'], sc, settings['model_name'],
-                            settings['wo_outliers'], settings['max_std'], 'fit')
 
     # Model initialization
     model = DCVAE(
         settings['T'],
-        settings['M'],
         settings['cnn_units'],
         settings['dil_rate'],
         settings['kernel'],
@@ -70,7 +65,7 @@ if __name__ == '__main__':
 
     # Train
     with experiment.train():
-        model.fit(df_X, settings['val_percent'], settings['seed'])
+        model.fit(data, settings['val_percent'], settings['seed'])
 
     #Plot loss curves
     plt.plot(model.history_.history["loss"], label="Training Loss")
