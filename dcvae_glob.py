@@ -141,7 +141,7 @@ class DCVAE:
         # Instantiate DC-VAE model
         # =============================================================================
         [x__mean, x_log_var] = self.decoder(self.encoder(input)[2])
-        
+
         self.vae = Model(input, [x__mean, x_log_var], name='vae')
         
         # Loss
@@ -185,7 +185,7 @@ class DCVAE:
     
         # Data preprocess
         X, _, _ = MTS2UTS(df_X, T=self.T)
-        ix_rand = np.random.permutation(X.shape[0])
+        ix_rand = np.random.permutation(len(X))
         X = np.array(X)[ix_rand]
 
         # Callbacks
