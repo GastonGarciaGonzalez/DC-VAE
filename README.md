@@ -68,6 +68,7 @@ conda activate <env>
 
 ### Data
 The data format must be a table where the first column corresponds to the timestamp. They must be saved in a .csv file.
+You could try with our own dataset [TELCO](https://iie.fing.edu.uy/investigacion/grupos/anomalias/en/telco-dataset-2/downloads/) if you want.
 
 ### Settings
 All the values and hyperparameters necessary to create a DC-VAE model must be specified in a .txt file. An example of this can be seen in the _settings_ folder.
