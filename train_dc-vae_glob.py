@@ -5,6 +5,11 @@ Created on Fri Apr 29 12:08:16 2022
 @author: gastong@fing.edu.uy
 """
 from comet_ml import Experiment
+
+import tensorflow as tf
+gpus= tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(gpus[0], True)
+
 import sys
 import pandas as pd
 import json
@@ -24,7 +29,7 @@ experiment = Experiment(
 
 )
 
-experiment.set_name('univariado_global')
+experiment.set_name('global_271123_3months')
 
 if __name__ == '__main__':
 
@@ -33,11 +38,12 @@ if __name__ == '__main__':
 
     # Data
     print('Reading the data...')
-    path = "/home/gastong/Documentos/TELCO/v0/" #Rosaluna
+    path = "/anomalias/home/gastong/Documentos/TELCO/"
     filenames = ["TELCO_data_2021_01.zip", "TELCO_data_2021_02.zip", "TELCO_data_2021_03.zip",
-                 "TELCO_data_2021_04.zip", "TELCO_data_2021_05.zip", "TELCO_data_2021_06.zip",
-                 "TELCO_data_2021_07.zip", "TELCO_data_2021_08.zip", "TELCO_data_2021_09.zip",
-                 "TELCO_data_2021_10.zip", "TELCO_data_2021_11.zip", "TELCO_data_2021_12.zip"]
+                # "TELCO_data_2021_04.zip", "TELCO_data_2021_05.zip", "TELCO_data_2021_06.zip",
+                # "TELCO_data_2021_07.zip", "TELCO_data_2021_08.zip", "TELCO_data_2021_09.zip",
+                # "TELCO_data_2021_10.zip", "TELCO_data_2021_11.zip", "TELCO_data_2021_12.zip"
+                 ]
     files = [path+ i for i in filenames]
     data = pd.concat(map(pd.read_csv, files))
     data = set_index(data)
@@ -84,4 +90,4 @@ if __name__ == '__main__':
     # Report multiple hyperparameters using a dictionary:
     hyper_params = settings
     experiment.log_parameters(hyper_params)
-    experiment.log_dataset_hash(df_X) #creates and logs a hash of your data
+    experiment.log_dataset_hash(data) #creates and logs a hash of your data

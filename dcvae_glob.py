@@ -8,6 +8,7 @@ Created on Fri Apr 29 07:03:05 2022
 
 
 import tensorflow as tf
+#tf.autograph.experimental.do_not_convert
 from tensorflow.keras.layers import Layer, Input, Conv1D, Lambda, Reshape, RepeatVector, Concatenate, Cropping1D
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
