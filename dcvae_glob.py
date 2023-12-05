@@ -21,6 +21,7 @@ from prts import ts_precision, ts_recall
 import pickle
 from utils import MTS2UTS, UTS2MTS
 
+
 @keras.utils.register_keras_serializable()
 class Sampling(Layer):
     """Uses (z_mean, z_log_var) to sample z, the vector encoding a digit."""
@@ -58,9 +59,9 @@ class DCVAE:
                  lr_decay=True,
                  decay_rate=0.96,
                  decay_step=1000,
-                 name = '',
                  epsilon = 1e-12,  
                  summary=False,
+                 save_models=True,
                  ):
         
         
@@ -70,11 +71,11 @@ class DCVAE:
         self.dil_rate = dil_rate
         self.T = T
         self.J = J
+        self.M = 12
         self.batch_size = batch_size
         self.epochs = epochs  
-        self.name = name
+        self.save_models = save_models
 
-        
         # model = encoder + decoder
         
         # Build encoder model
@@ -182,7 +183,7 @@ class DCVAE:
         self.vae.compile(optimizer=opt)
 
 
-    def fit(self, df_X=None, val_percent=0.1, seed=42):
+    def fit(self, df_X=None, val_percent=0.1, model_name=''):
     
         # Data preprocess
         X, _, _ = MTS2UTS(df_X, T=self.T)
@@ -190,31 +191,35 @@ class DCVAE:
         X = np.array(X)[ix_rand]
 
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-3,
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
                                                       patience=10,                                            
                                                       verbose=1,
                                                       mode='min')
         
         model_checkpoint_cb= keras.callbacks.ModelCheckpoint(
-            filepath=self.name+'_best_model.h5',
+            filepath=model_name+'_best_model.h5',
             verbose=1,
             mode='min',
             save_best_only=True)
         
-          
+        if self.save_models:
+            calls = [early_stopping_cb, model_checkpoint_cb]
+        else:
+            calls = [early_stopping_cb]
+
         # Model train
         self.history_ = self.vae.fit(X,
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_split = val_percent,
-                     callbacks=[early_stopping_cb,
-                                model_checkpoint_cb]
+                     callbacks=[calls]
                      ) 
         
         # Save models
-        self.encoder.save(self.name+'_encoder.h5')
-        self.decoder.save(self.name+'_decoder.h5')
-        self.vae.save(self.name+'_complete.h5')
+        if self.save_models:
+            self.encoder.save(model_name+'_encoder.h5')
+            self.decoder.save(model_name+'_decoder.h5')
+            self.vae.save(model_name+'_complete.h5')
 
         return self
 
@@ -222,6 +227,7 @@ class DCVAE:
     def predict(self,
                 df_X=None, 
                 load_model=False,
+                model_name='',
                 model='best_model',
                 only_predict=True,
                 load_alpha=True,
@@ -229,24 +235,20 @@ class DCVAE:
         
         # Trained model
         if load_model:
-            self.vae = keras.models.load_model(self.name+'_'+model+'.h5',
+            self.vae = keras.models.load_model(model_name+'_'+model+'.h5',
                                                     custom_objects={'sampling': Sampling},
                                                     compile = True)
-            self.encoder = keras.models.load_model(self.name+'_encoder.h5',
+            self.encoder = keras.models.load_model(model_name+'_encoder.h5',
                                                     custom_objects={'sampling': Sampling},
                                                     compile = False)
 
-        # Inference model. Auxiliary model so that in the inference 
-        # the prediction is only the last value of the sequence
-        inp = Input(shape=(self.T, 1))
-        x = self.vae(inp) # apply trained model on the input
-        out = Lambda(lambda y: [y[0][:,-1,:], y[1][:,-1,:]])(x)
-        inference_model = Model(inp, out)
-        
+
         # Data preprocess
         sam_val, sam_ix, sam_class = MTS2UTS(df_X, T=self.T)
         
         # Predictions
+        print(np.stack(sam_val).shape)
+        print(np.stack(sam_val))
         prediction = self.vae.predict(np.stack(sam_val))
         # The first T-1 data of each sequence are discarded
         reconstruct = prediction[0]
@@ -261,7 +263,7 @@ class DCVAE:
         if len(alpha_set) == self.M:
             alpha = np.array(alpha_set)
         elif load_alpha:
-            with open(self.name + '_alpha.pkl', 'rb') as f:
+            with open(model_name + '_alpha.pkl', 'rb') as f:
                 alpha = pickle.load(f)
                 f.close()
         else:
@@ -281,14 +283,14 @@ class DCVAE:
             return df_predict, df_reconstruct, df_sig, latent_space, sam_ix, sam_class
 
 
-    def evaluate(self, df_X=None, load_model=False, model='best_model'):
+    def evaluate(self, df_X=None, load_model=False, model_name='', model='best_model'):
         # Data preprocess
         sam_val, _, _ = MTS2UTS(df_X, T=self.T)
 
         # Trained model
         if load_model:
             print('=====================================')
-            self.vae = keras.models.load_model(self.name+'_'+model+'.h5',
+            self.vae = keras.models.load_model(model_name+'_'+model+'.h5',
                                                     custom_objects={'sampling': Sampling},
                                                     compile = True)
 
