@@ -4,6 +4,7 @@ Created on Fri Apr 29 12:08:16 2022
 
 @author: gastong@fing.edu.uy
 """
+from statistics import quantiles
 from comet_ml import Experiment
 
 import tensorflow as tf
@@ -33,8 +34,9 @@ experiment.set_name('global_271123_3months')
 
 if __name__ == '__main__':
 
-    #data_path = sys.argv[1]
+    #Parameters
     settings_path = sys.argv[1]
+    settings = json.load(open(settings_path, 'r'))
 
     # Data
     print('Reading the data...')
@@ -49,10 +51,12 @@ if __name__ == '__main__':
     data = set_index(data)
     data = preprocessing(data, flag_scaler=False, outliers=True)
 
+    # Standardize
+    quantiles = data.quantile(0.98)
     data = data/data.quantile(0.98)
+    quantiles.to_csv(settings['model_name']+'_quantiles.csv')
 
-    # Parameters
-    settings = json.load(open(settings_path, 'r'))
+  
 
     # Model initialization
     model = DCVAE(
