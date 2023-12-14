@@ -8,7 +8,7 @@ Created on Fri Apr 29 07:03:05 2022
 
 
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization, Lambda
+from tensorflow.keras.layers import Layer, Input, Conv1D, BatchNormalization, Lambda, Cropping1D, Reshape, RepeatVector
 from tensorflow.keras.models import Model
 from tensorflow.keras import backend as K
 from tensorflow.keras import optimizers
@@ -85,26 +85,21 @@ class DCVAE:
         inputs = Input(shape=input_shape, name='input')
         
         # Hidden layers (1D Dilated Convolution)
-        # First
-        h_enc_cnn = Conv1D(cnn_units[0], kernel, activation='tanh',
-                           strides=strs, padding="causal", 
-                           dilation_rate=dil_rate[0], name='cnn_%d'%0)(inputs)
-        h_enc_cnn = BatchNormalization()(h_enc_cnn)
-        
-        # Middle 
-        for i in range(len(cnn_units)-2):
-            h_enc_cnn = Conv1D(cnn_units[i+1], kernel, activation='tanh',
+        h_enc_cnn = inputs
+        for i in range(len(cnn_units)):
+            h_enc_cnn = Conv1D(cnn_units[i], kernel, activation='selu', use_bias=False,
                            strides=strs, padding="causal",
-                           dilation_rate=dil_rate[i+1], name='cnn_%d'%(i+1))(h_enc_cnn)
-            h_enc_cnn = BatchNormalization()(h_enc_cnn)
+                           dilation_rate=dil_rate[i], name='dcnn_enc_%d'%(i))(h_enc_cnn)
             
         # Lastest    
-        z_mean = Conv1D(J, kernel, activation=None,
-                           strides=strs, padding="causal",
-                           dilation_rate=dil_rate[i+1], name='z_mean')(h_enc_cnn)
-        z_log_var = Conv1D(J, kernel, activation=None,
-                           strides=strs, padding="causal",
-                           dilation_rate=dil_rate[i+1], name='z_log_var')(h_enc_cnn)
+        z_mean = Conv1D(J, 1, activation=None,
+                           strides=strs, padding="causal", name='z_mean', use_bias=False)(h_enc_cnn)
+        z_log_var = Conv1D(J, 1, activation=None,
+                           strides=strs, padding="causal", name='z_log_var', use_bias=False)(h_enc_cnn)
+        
+        # Cropping
+        z_mean = Cropping1D(cropping=(self.T-1, 0))(z_mean)
+        z_log_var = Cropping1D(cropping=(self.T-1, 0))(z_log_var)
             
         # Reparameterization trick 
         # Output
@@ -118,31 +113,24 @@ class DCVAE:
         # Build decoder model
         # =============================================================================
         # Input
-        latent_inputs = Input(shape=(T, J), name='z_sampling')
+        latent_inputs = Input(shape=(1, J), name='z_sampling')
+
+        # Hidden layers (1D Dilated Convolution)
+        latent_reshape = Reshape((J, ), input_shape=(1, J))(latent_inputs)
+        repeat_z = RepeatVector(T)(latent_reshape)
+        h_dec_cnn = repeat_z
         
         # Hidden layers (1D Dilated Convolution)
-        # First
-        h_dec_cnn = Conv1D(cnn_units[-1], kernel, activation='elu', 
+        for i in range(len(cnn_units)):
+            h_dec_cnn = Conv1D(cnn_units[i], kernel, activation='selu', use_bias=False,
                            strides=strs, padding="causal",
-                           dilation_rate=dil_rate[-1], name='cnn_-1')(latent_inputs)
-        h_dec_cnn = BatchNormalization()(h_dec_cnn)       
-        
-        #Middle
-        for i in range(-2, -len(cnn_units), -1):
-            h_dec_cnn = Conv1D(cnn_units[i], kernel, activation='elu',
-                           strides=strs, padding="causal", 
-                           dilation_rate=dil_rate[i], name='cnn_%d'%i)(h_dec_cnn)
-            h_dec_cnn = BatchNormalization()(h_dec_cnn)
+                           dilation_rate=dil_rate[i], name='dcnn_dec_%d'%i)(h_dec_cnn)      
             
         # Lastest/Output
-        x__mean = Conv1D(M, kernel, activation=None, 
-                                  padding="causal",
-                                  dilation_rate=dil_rate[0],
-                                  name='x__mean_output')(h_dec_cnn)
-        x_log_var = Conv1D(M, kernel, activation=None,
-                                  padding="causal", 
-                                  dilation_rate=dil_rate[0],
-                                  name='x_log_var_output')(h_dec_cnn)
+        x__mean = Conv1D(1, 1, activation=None, padding="causal",
+                                  name='x__mean_output', use_bias=False)(h_dec_cnn)
+        x_log_var = Conv1D(1, 1, activation=None, padding="causal",
+                                  name='x_log_var_output', use_bias=False)(h_dec_cnn)
 
         # Instantiate decoder model
         self.decoder = Model(latent_inputs, [x__mean, x_log_var], name='decoder')
@@ -152,7 +140,7 @@ class DCVAE:
 
         # Instantiate DC-VAE model
         # =============================================================================
-        [x__mean, x_log_var] = self.decoder(self.encoder(inputs)[2])
+        [x__mean, x_log_var] = self.decoder(self.encoder(inputs)[2]) # type: ignore
         self.vae = Model(inputs, [x__mean, x_log_var], name='vae')
         
         # Loss
@@ -163,7 +151,7 @@ class DCVAE:
         reconstruction_loss = K.mean(-log_likelihood) #Mean in the batch and T   
        
         # Priori hypothesis term
-        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
+        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var) # type: ignore
         kl_loss = K.mean(kl_loss, axis=-1) #Mean in J
         kl_loss *= -0.5
         kl_loss = tf.reduce_mean(kl_loss) #Mean in the batch and T
@@ -183,20 +171,20 @@ class DCVAE:
             lr = learning_rate
 
         # Optimaizer
-        opt = optimizers.Adam(learning_rate=lr)
+        opt = optimizers.Adam(learning_rate=lr) # type: ignore
 
         # Metrics
         self.vae.add_metric(reconstruction_loss, name='reconst')
         self.vae.add_metric(kl_loss, name='kl')
 
 
-        self.vae.compile(optimizer=opt)
+        self.vae.compile(optimizer=opt) # type: ignore
 
 
-    def fit(self, df_X=None, val_percent=0.1, seed=42):
+    def fit(self, df_X=pd.DataFrame, val_percent=0.1, seed=42):
         # Data preprocess
         X = df_X.values
-        N = df_X.shape[0]
+        N = df_X.shape[0] # type: ignore
         split_index = N - int(val_percent*N)
         
         dataset_train = timeseries_dataset_from_array(
@@ -211,7 +199,7 @@ class DCVAE:
             end_index=None)                 
         
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=0,
                                                       patience=5,                                            
                                                       verbose=1,
                                                       mode='min')
@@ -223,7 +211,7 @@ class DCVAE:
         
           
         # Model train
-        self.history_ = self.vae.fit(dataset_train,
+        self.history_ = self.vae.fit(dataset_train, # type: ignore
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_data = dataset_val,
@@ -232,16 +220,16 @@ class DCVAE:
                      )  
         
         # Save models
-        self.encoder.save(self.name+'_encoder.h5')
+        self.encoder.save(self.name+'_encoder.h5') # type: ignore
         self.decoder.save(self.name+'_decoder.h5')
-        self.vae.save(self.name+'_complete.h5')
+        self.vae.save(self.name+'_complete.h5') # type: ignore
 
         return self
 
 
 
 
-    def alpha_selection(self, load_model=False, df_X=None, df_y=None,
+    def alpha_selection(self, load_model=False, df_X=pd.DataFrame, df_y=pd.DataFrame,
                            custom_metrics=False, al=0, cardinality='reciprocal',
                            bias='front'):
         
@@ -259,15 +247,15 @@ class DCVAE:
             batch_size=self.batch_size)  
             
         # Predict
-        prediction = self.vae.predict(dataset_val_th)
+        prediction = self.vae.predict(dataset_val_th) # type: ignore
         # The first T-1 data of each sequence are discarded
         reconstruct = prediction[0][:,-1,:]
         log_var = prediction[1][:,-1,:]
         sig = np.sqrt(np.exp(log_var))
         
         # Data evaluate (The first T-1 data are discarded)
-        X_evaluate = X[self.T-1:]
-        y_evaluate = y[self.T-1:]
+        X_evaluate = X[self.T-1:] # type: ignore
+        y_evaluate = y[self.T-1:] # type: ignore
         
         print('Alpha selection...')
         best_f1 = np.zeros(self.M)
@@ -323,7 +311,7 @@ class DCVAE:
 
                
     def predict(self, load_model=False,
-                df_X=None, 
+                df_X=pd.DataFrame, 
                 only_predict=True,
                 load_alpha=True,
                 alpha_set_up=[],
@@ -341,7 +329,7 @@ class DCVAE:
         # Inference model. Auxiliary model so that in the inference 
         # the prediction is only the last value of the sequence
         inp = Input(shape=(self.T, self.M))
-        x = self.vae(inp) # apply trained model on the input
+        x = self.vae(inp) # type: ignore # apply trained model on the input
         out = Lambda(lambda y: [y[0][:,-1,:], y[1][:,-1,:]])(x)
         inference_model = Model(inp, out)
         
