@@ -67,17 +67,21 @@ def MTS2UTS(ds=None, T=32, seed=42):
 
     return samples_values, samples_index, samples_class    
 
+
 def UTS2MTS(ds_val, ds_ix, ds_class):
     ds_val = np.array(ds_val)
     ds_ix = np.array(ds_ix)
     ds_class = np.array(ds_class)
     columns = ds_class[np.where(np.roll(ds_class,1)!=ds_class)[0]]
-    index = ds_ix[:, -1][ds_class==columns[0]]
+    if len(columns) == 0:
+        columns = [ds_class[0]]
+        index = ds_ix[:, -1]  
+    else:
+        index = ds_ix[:, -1][ds_class==columns[0]]
     df = pd.DataFrame(index=index, columns=columns)
     for col in columns:
         if ds_val.ndim > 1:
             df[col] = ds_val[:, -1][ds_class==col]
         else:
             df[col] = ds_val[ds_class==col]
-
     return df

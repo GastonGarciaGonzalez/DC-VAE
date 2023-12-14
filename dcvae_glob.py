@@ -142,7 +142,7 @@ class DCVAE:
 
         # Instantiate DC-VAE model
         # =============================================================================
-        [x__mean, x_log_var] = self.decoder(self.encoder(input)[2])
+        [x__mean, x_log_var] = self.decoder(self.encoder(input)[2]) # type: ignore
 
         self.vae = Model(input, [x__mean, x_log_var], name='vae')
         
@@ -154,7 +154,7 @@ class DCVAE:
         reconstruction_loss = K.mean(-log_likelihood) #Mean in the batch and T  
        
         # Priori hypothesis term
-        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var)
+        kl_loss = 1 + z_log_var - K.square(z_mean) - K.exp(z_log_var) # type: ignore
         kl_loss = K.mean(kl_loss, axis=-1) #Mean in J
         kl_loss *= -0.5
         kl_loss = tf.reduce_mean(kl_loss) #Mean in the batch and T
@@ -174,13 +174,13 @@ class DCVAE:
             lr = learning_rate
 
         # Optimaizer
-        opt = optimizers.Adam(learning_rate=lr)
+        opt = optimizers.Adam(learning_rate=lr) # type: ignore
 
         # Metrics
         self.vae.add_metric(reconstruction_loss, name='reconst')
         self.vae.add_metric(kl_loss, name='kl')
 
-        self.vae.compile(optimizer=opt)
+        self.vae.compile(optimizer=opt) # type: ignore
 
 
     def fit(self, df_X=None, val_percent=0.1, model_name=''):
@@ -191,8 +191,8 @@ class DCVAE:
         X = np.array(X)[ix_rand]
 
         # Callbacks
-        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=1e-2,
-                                                      patience=10,                                            
+        early_stopping_cb = keras.callbacks.EarlyStopping(min_delta=0,
+                                                      patience=5,                                            
                                                       verbose=1,
                                                       mode='min')
         
@@ -208,7 +208,7 @@ class DCVAE:
             calls = [early_stopping_cb]
 
         # Model train
-        self.history_ = self.vae.fit(X,
+        self.history_ = self.vae.fit(X, # type: ignore
                      batch_size=self.batch_size,
                      epochs=self.epochs,
                      validation_split = val_percent,
@@ -217,9 +217,9 @@ class DCVAE:
         
         # Save models
         if self.save_models:
-            self.encoder.save(model_name+'_encoder.h5')
+            self.encoder.save(model_name+'_encoder.h5') # type: ignore
             self.decoder.save(model_name+'_decoder.h5')
-            self.vae.save(model_name+'_complete.h5')
+            self.vae.save(model_name+'_complete.h5') # type: ignore
 
         return self
 
